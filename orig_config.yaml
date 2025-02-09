@@ -1,0 +1,10 @@
+stack_name: example-log-analysis
+lambda_names:
+  - best_ever
+  - bff_of_best_ever
+bucket_names:
+  - example-data
+bucket_properties:
+  example-data: 
+    - pre-existing
+    - Grand read-write access to lambda best_ever
