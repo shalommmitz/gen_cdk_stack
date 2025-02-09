@@ -113,8 +113,8 @@ class Stack(Stack):
 
 
         # 3. Set Lambdas access rights to buckets
-        read_only_lambda_access_to_bucket = ^^read_only_lambda_access_to_bucket^^
         # 3.a Permission to read only this bucket
+        read_only_lambda_access_to_bucket = ^^read_only_lambda_access_to_bucket^^
         for bucket_name in read_only_lambda_access_to_bucket.keys():
             for lambda_name in read_only_lambda_access_to_bucket[bucket_name]:
                 #buckets[bucket_name].grant_read(lambdas[lambda_name])

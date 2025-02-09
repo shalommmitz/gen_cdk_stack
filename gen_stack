@@ -37,7 +37,16 @@ if ans=="a":
     print("Aborting by user request")
     exit()
 if ans=="y":
-    # 3.a Modify the list of lambdas
+    # 3.a Modify the stack name
+    stack_name = input_dialog(
+        title='Modify the stack name',
+        text='',
+        default = f'{config["stack_name"]}'
+    ).run()
+    config["stack_name"] = stack_name
+    yaml.safe_dump(config, open("config.yaml", 'w'))
+
+    # 3.b Modify the list of lambdas
     new_lambda_names = input_dialog(
         title='Modify the list of Lamnbdas',
         text='"_lambda" will be added to each lambda-name.\nThe list is seprated by comma(s)',
@@ -49,7 +58,8 @@ if ans=="y":
         lambda_names.append(ln.strip()) 
     config["lambda_names"] = lambda_names
     yaml.safe_dump(config, open("config.yaml", 'w'))
-    # 3.b Modify the list of buckets
+
+    # 3.c Modify the list of buckets
     bucket_names = config["bucket_names"]
     new_bucket_names = input_dialog(
         title='Modify the list of S3 buckets',
@@ -63,7 +73,7 @@ if ans=="y":
     config["bucket_names"] = bucket_names
     yaml.safe_dump(config, open("config.yaml", 'w'))
 
-    # 3.c Modify the properties of each buckets
+    # 3.d Modify the properties of each buckets
     for bn in bucket_names:
         on_by_default = []
         if bn in config["bucket_properties"].keys():
