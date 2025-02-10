@@ -48,8 +48,8 @@ if ans=="y":
 
     # 3.b Modify the list of lambdas
     new_lambda_names = input_dialog(
-        title='Modify the list of Lamnbdas',
-        text='"_lambda" will be added to each lambda-name.\nThe list is seprated by comma(s)',
+        title='Modify the list of Lambdas',
+        text='"_lambda" will be added to each lambda-name.\nThe list is separated by comma(s)',
         default = f'{",".join(config["lambda_names"])}'
     ).run()
     lambda_names = []
@@ -63,7 +63,7 @@ if ans=="y":
     bucket_names = config["bucket_names"]
     new_bucket_names = input_dialog(
         title='Modify the list of S3 buckets',
-        text='The stack-name will be added to each bucket name.\nThe list is seprated by comma(s)',
+        text='The stack-name will be added to each bucket name.\nThe list is separated by comma(s)',
         default = f'{",".join(config["bucket_names"])}'
     ).run()
     bucket_names = []

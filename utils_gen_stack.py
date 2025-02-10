@@ -24,8 +24,8 @@ from constructs import Construct
 
 class Stack(Stack):
     def create_lambda(self, name, env, lambda_role):
-        # Intially we will load dummy code, to prevent dependencies=related failueres
-        # Later in the create-stack script we will load the full/real code as zip
+        # Initially we will load dummy code, to prevent dependencies=related failures
+        # After the stack is created, use 'update_lambdas' to upload to real code. See README.md for details
         dummy_code  = "def events_handler(events, context):\\n"
         dummy_code += '    msg = \\'ERROR: dummy code for Lambda "NAME" - please run "update_lambdas"\\'\\n'
         dummy_code += "    print(msg)\\n"
@@ -53,7 +53,7 @@ class Stack(Stack):
             case "short_for_env_var":
                 return self.get_bucket_name(idx, "short").upper().replace("-", "_")
             case _:
-                raise "ERROR: illigal name_type"
+                raise "ERROR: illegal name_type"
 
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -77,7 +77,7 @@ class Stack(Stack):
                     removal_policy=core.RemovalPolicy.DESTROY,
                     #auto_delete_objects=True
                 )
-                # 1.b Add a statment to the IAM policy to deny non-HTTPS requests:
+                # 1.b Add a statement to the IAM policy to deny non-HTTPS requests:
                 buckets[bucket_short_name].add_to_resource_policy(
                     iam.PolicyStatement(
                         sid="DenyHTTP",
@@ -102,11 +102,11 @@ class Stack(Stack):
                     iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSLambdaBasicExecutionRole")
                 )
                 
-                # 2.b Create lambda envirnment
+                # 2.b Create lambda environment
                 env= {}
                 # env["BUCKET"] = self.get_bucket_name(idx, "real_for_env_var")
                 
-                # 2.c Create lambda envirnment
+                # 2.c Create lambda environment
                 lambda_name = f"{self.lambda_names[idx]}"
                 lambda_code_file_name = f"{lambda_name}_lambda"
                 lambdas[lambda_name] = self.create_lambda(lambda_code_file_name, env, lambda_role)
@@ -169,7 +169,7 @@ app.synth()
     for config_param in config_params:
         locals()[config_param] = config[config_param]
 
-    # 2. embded parameters in the stack
+    # 2. embed parameters in the stack
     preexisting_buckets = []
     read_only_lambda_access_to_bucket = {}
     read_write_lambda_access_to_bucket = {}
