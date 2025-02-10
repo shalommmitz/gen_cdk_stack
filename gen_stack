@@ -112,4 +112,9 @@ if ans:
 else:
     print("Stack file not saved by user request")
    
+# 5. Write the new Lambdas, if they are not present
+path = "../aws/lambdas/"
+for lambda_name in config["lambda_names"]:
+    if not os.path.isfile(path + lambda_name +"_lambda.py"):
+         os.system(f"cp {path}template_lambda.py {path}{lambda_name}_lambda.py")
 
