@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+import boto3
+import os
+import json
+import glob
+import time
+from sys import argv
+
+ZIP_ONLY = False
+if len(argv)>1:
+    if argv[1]=="--zip-only": ZIP_ONLY = True
+
+cmd_start = "cd lambdas; aws"
+
+#Perform santiy check on utils.py, if exists
+fn = "lambdas/utils.py"
+if os.path.isfile(fn):
+    print("    Performing sanity check on 'utils.py' (will abort on error)")
+    source = open(fn, 'r').read() + '\n'
+    compile(source, fn, 'exec')
+
+
+##Get names of all Lambdas
+lambdas = []
+for fn in glob.glob("lambdas/*.py"):
+    print("Now handling:", fn)
+    core_fn = fn.replace("lambdas/","").replace(".py","")
+    if core_fn in ["index", "utils", "template_lambda"]:
+        continue
+    print(f"   Now handling Lamnda w/file name {core_fn}.py")
+    # Example: converts aaa_bbb_ccc to aaaBbbCccFunctionName
+    #env_var_name = "".join([ w.capitalize() for w in core_fn.split("_") ])
+    #env_var_name = env_var_name[0].lower() + env_var_name[1:] +"FunctionName"
+    env_var_name = core_fn.upper().replace("_","") + "FUNCTIONNAME"
+    lambdas.append({"fn": core_fn +".py", "name": os.environ[env_var_name]})
+    
+
+ongoing_uploads = []
+for l in lambdas:
+    file_name = l["fn"]
+    if ZIP_ONLY: 
+        print(f'Uploading lambda {file_name}')
+    else:
+        print(f'Uploading lambda {file_name}')
+
+    #Before wee really start, lets verify that function compiles correctly
+    print("    Performing sanity check (will abort on error)")
+    source = open("lambdas/"+ file_name, 'r').read() + '\n'
+    compile(source, "lambdas/"+ file_name, 'exec')
+    zip_fn = "zip_of_" + file_name[:-3] +".zip"
+    os.system("rm -f lambdas/"+ zip_fn)
+    os.system("cp lambdas/"+ file_name +" lambdas/index.py")
+    folders = "packages/*"
+    os.system("rm -rf packages/yaml/__pycache__")
+    cmd = "cd lambdas; zip -r "+ zip_fn +" index.py utils.py "+ folders
+    os.popen(cmd).read()
+
+    if ZIP_ONLY: 
+        print(f"    Created zip file {zip_fn}")
+        continue
+
+    cmd = cmd_start + " lambda update-function-code"
+    cmd += " --function-name "+ l["name"]
+    cmd += " --zip-file fileb://"+ zip_fn +" 2>&1"
+    res = os.popen(cmd).read()
+    try:
+        res = json.loads(res)
+    except:
+        print("Result of the upload is not a valid JSON.")
+        print("   Probably it means an error occured")
+        print()
+        print("Got the result:")
+        print(res)
+        exit()
+    status = res["LastUpdateStatus"]
+    if status=="InProgress":  
+        ongoing_uploads.append(l)
+    print("    Intial status:", status)
+
+if len(argv)>1:
+    if argv[1]=="--zip-only": exit()
+
+print("\nStatus:")
+while len(ongoing_uploads)>0:
+    for l in ongoing_uploads:
+        cmd = cmd_start + " lambda get-function"
+        cmd += " --function-name "+ l["name"]
+        cmd += " --query 'Configuration.[State, LastUpdateStatus]' 2>&1"
+        res = json.loads(os.popen(cmd).read())
+        print("   ", l["fn"], res) 
+        status = res[1]
+        if status!="InProgress": ongoing_uploads.remove(l) 
+    time.sleep(2)

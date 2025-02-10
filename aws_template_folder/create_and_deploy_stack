@@ -1,0 +1,102 @@
+#!/usr/bin/env python3
+import stack_info
+import os, time, yaml
+
+try:
+   import aws_cdk
+except:
+   print("Cannot import module aws_cdk - Aboring")
+   print("  You might want to run: . ../venv/bin/activate")
+   exit()
+
+config_path = "cdk_stack/config.yaml"
+if not os.path.isfile(config_path):
+    config_path = "../gen_cdk_stack/config.yaml"
+if not os.path.isfile(config_path):
+    print("ERROR: could not find the config file (config.yaml) - Aborting")
+    exit()
+config = yaml.safe_load(open(config_path))
+stack_name = config["stack_name"]
+
+use_localstack = False
+
+# Check if the stack we are about to create already exists
+si = stack_info.StackInfo(use_localstack)
+num_stacks = si.get_num_stacks()
+if si.connection_success_msg:
+    print(si.connection_success_msg)
+    print("Aborting")
+    exit()
+print("Before we start the creation of a new stack, there are",num_stacks, "stack(s).")
+status = si.get_stack_status(stack_name)
+if status!=None:
+    print(f"Stack {stack_name} pre-exists - Aborintg")
+    print("   If you use localstak: restarting localstack will help")
+    print("   If you use the 'real' AWS: Delete the exissting stack")
+    print("   WARNING: the above two actions might erase all your table data.")
+    exit()
+
+
+print("Generating CloudFormatioon template JSON using CDK")
+os.system("rm -f cdk_stack/template_as_generated_by_cdk.yaml")
+cmd = f'export STACK_NAME={stack_name}; cd cdk_stack; cdk synth >template_as_generated_by_cdk.yaml'
+ans = os.popen(cmd).read()
+template_file_size = os.path.getsize('cdk_stack/template_as_generated_by_cdk.yaml')
+if template_file_size<100:
+    print("CDK did not genrete template file - Aborting")
+    exit()
+
+print("Stripping the CloudFormation template of CDK metadata")
+cmd = "./clean_template"
+ans = os.popen(cmd).read()
+print(ans)
+
+print("Deploying the AWS resources defined in the template, using CloudFormation")
+cmd  = 'aws cloudformation create-stack '
+cmd += '--stack-name '+ stack_name
+cmd += '  --template-body file://template.yaml --capabilities CAPABILITY_IAM'
+ans = os.popen(cmd).read()
+print("Answer to 'create stack' command:")
+print(ans)
+
+print("\nStack status:")
+stack_status = si.get_stack_status(stack_name) 
+print("   ", stack_status)
+
+while stack_status=='CREATE_IN_PROGRESS':
+    print("    Waiting for stack creation to complete")   # Need add time out
+    time.sleep(1)
+    stack_status = si.get_stack_status(stack_name) 
+
+print("\nStack final status:")
+print("   ", stack_status)
+
+if stack_status=="CREATE_FAILED" or stack_status=="ROLLBACK_IN_PROGRESS":
+    print("Aborting, because stack creation has failed")
+    exit()
+
+os.system("rm -f ./set_stack_env_vars")
+print("\nStack outputs:")
+outputs = si.get_stack_outputs(stack_name)
+if outputs is None: outputs = {}
+
+coordinator_credentials = "[default]\noutput = json\nregion = us-west-2\n"
+
+outputs.append( {'OutputKey': "USE_LOCALSTACK", 'OutputValue': str(use_localstack)} )
+for output in outputs:
+    key =  output['OutputKey']; val = output['OutputValue'] 
+    match key:
+        case "CoordinatorAccessKeyId":
+             coordinator_credentials += f"aws_access_key_id = {val}\n"
+        case "CoordinatorSecretAccessKey":
+             coordinator_credentials += f"aws_secret_access_key = {val}\n"
+        case _: 
+            print("   ", key, val)
+            open("set_stack_env_vars", 'a').write(f'export {key}={val}\n')
+
+open("coordinator_credentials", 'w').write(coordinator_credentials)
+print("Created coordinator_credentials")
+
+os.system('chmod +x set_stack_env_vars')
+print("Created the script 'set_stack_env_vars'")
+print("   Pleaes upload Lambdas: . set_stack_env_vars; ./update_lambdas")

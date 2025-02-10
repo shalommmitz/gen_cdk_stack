@@ -14,7 +14,8 @@ if not os.path.isdir("../aws"):
 
     ans = prompt("   Would you like to create it ? (Y/n) > ")
     if ans.lower()=="y" or ans=="":
-         os.system(f"tar xf aws_template.tar -C ..")
+         #os.system(f"tar xf aws_template.tar -C ..")
+         os.system(f"cp -r aws_template_folder ../aws")
 if not os.path.isdir("../aws"):
     print("The folder '../aws' does not exist - Aborting.")
     exit()
