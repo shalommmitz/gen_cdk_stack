@@ -23,6 +23,12 @@ from aws_cdk import (
 from constructs import Construct
 
 class Stack(Stack):
+    def convert_underscore_to_capitals(self, s):
+        # Converts aaa_bbb_ccc to aaaBbbCccFunctionName, as cfnOutput removes all not leters
+        s = "".join([ w.capitalize() for w in s.split("_") ])
+        return s[0].lower() + s[1:]
+
+
     def create_lambda(self, name, env, lambda_role):
         # Initially we will load dummy code, to prevent dependencies=related failures
         # After the stack is created, use 'update_lambdas' to upload the real code. See README.md for details
@@ -108,7 +114,7 @@ class Stack(Stack):
                 
                 # 2.c Create the lambda
                 lambda_name = f"{self.lambda_names[idx]}"
-                lambda_code_file_name = f"{lambda_name}_lambda"
+                lambda_code_file_name = self.convert_underscore_to_capitals(f"{lambda_name}_lambda")
                 lambdas[lambda_name] = self.create_lambda(lambda_code_file_name, env, lambda_role)
 
 
@@ -149,12 +155,9 @@ class Stack(Stack):
                 )
 
         # 6. Send the names of all Lambdas to the output, to be used to upload the lambdas
-        for file_name in lambdas.keys():
-           function_name = lambdas[file_name].function_name
-           env_var_name = file_name.upper().replace("-", "_") + "_FUNCTION_NAME" 
-           # Example: converts aaa_bbb_ccc to aaaBbbCccFunctionName
-           #env_var_name = "".join([ w.capitalize() for w in file_name.split("_") ])
-           #env_var_name = env_var_name[0].lower() + env_var_name[1:] +"FunctionName"
+        for lambda_name in lambdas.keys():
+           function_name = lambdas[lambda_name].function_name
+           env_var_name = self.convert_underscore_to_capitals(lambda_name) +"LambdaFunctionName"
            CfnOutput(self, env_var_name, value=function_name)
 
 app = core.App()
@@ -205,6 +208,7 @@ app.synth()
     for param in config_params:
          stack = stack.replace("^^"+param+"^^", str(locals()[param]))
     return stack
+    
 
 if __name__=="__main__":
     print(get_stack())

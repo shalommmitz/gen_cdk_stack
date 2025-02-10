@@ -9,6 +9,12 @@ from sys import argv
 ZIP_ONLY = False
 if len(argv)>1:
     if argv[1]=="--zip-only": ZIP_ONLY = True
+    
+def convert_underscore_to_capitals(s):
+    # Converts aaa_bbb_ccc to aaaBbbCccFunctionName, as cfnOutput removes all not leters
+    s = "".join([ w.capitalize() for w in s.split("_") ])
+    return s[0].lower() + s[1:]
+
 
 cmd_start = "cd lambdas; aws"
 
@@ -22,16 +28,16 @@ if os.path.isfile(fn):
 
 ##Get names of all Lambdas
 lambdas = []
-for fn in glob.glob("lambdas/*.py"):
+for fn in glob.glob("lambdas/*_lambda.py"):
     print("Now handling:", fn)
     core_fn = fn.replace("lambdas/","").replace(".py","")
-    if core_fn in ["index", "utils", "template_lambda"]:
-        continue
-    print(f"   Now handling Lamnda w/file name {core_fn}.py")
-    # Example: converts aaa_bbb_ccc to aaaBbbCccFunctionName
-    #env_var_name = "".join([ w.capitalize() for w in core_fn.split("_") ])
-    #env_var_name = env_var_name[0].lower() + env_var_name[1:] +"FunctionName"
-    env_var_name = core_fn.upper().replace("_","") + "FUNCTIONNAME"
+    if core_fn == "template_lambda": continue
+    print(f"   Lamnda file name is {core_fn}.py")
+    env_var_name = convert_underscore_to_capitals(core_fn) +"FunctionName"
+    if not env_var_name in os.environ.keys():
+        print(f"   ERROR: missing the env varaibale with the key '{env_var_name}' - Aborting.")
+        print( "   Maybe you should run '. set_stack_env_vars' ?")
+        exit()
     lambdas.append({"fn": core_fn +".py", "name": os.environ[env_var_name]})
     
 

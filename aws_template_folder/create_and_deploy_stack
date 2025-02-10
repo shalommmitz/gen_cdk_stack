@@ -80,22 +80,11 @@ print("\nStack outputs:")
 outputs = si.get_stack_outputs(stack_name)
 if outputs is None: outputs = {}
 
-coordinator_credentials = "[default]\noutput = json\nregion = us-west-2\n"
-
 outputs.append( {'OutputKey': "USE_LOCALSTACK", 'OutputValue': str(use_localstack)} )
 for output in outputs:
     key =  output['OutputKey']; val = output['OutputValue'] 
-    match key:
-        case "CoordinatorAccessKeyId":
-             coordinator_credentials += f"aws_access_key_id = {val}\n"
-        case "CoordinatorSecretAccessKey":
-             coordinator_credentials += f"aws_secret_access_key = {val}\n"
-        case _: 
-            print("   ", key, val)
-            open("set_stack_env_vars", 'a').write(f'export {key}={val}\n')
-
-open("coordinator_credentials", 'w').write(coordinator_credentials)
-print("Created coordinator_credentials")
+    print("   ", key, val)
+    open("set_stack_env_vars", 'a').write(f'export {key}={val}\n')
 
 os.system('chmod +x set_stack_env_vars')
 print("Created the script 'set_stack_env_vars'")
