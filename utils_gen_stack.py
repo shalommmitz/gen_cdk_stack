@@ -25,7 +25,7 @@ from constructs import Construct
 class Stack(Stack):
     def create_lambda(self, name, env, lambda_role):
         # Initially we will load dummy code, to prevent dependencies=related failures
-        # After the stack is created, use 'update_lambdas' to upload to real code. See README.md for details
+        # After the stack is created, use 'update_lambdas' to upload the real code. See README.md for details
         dummy_code  = "def events_handler(events, context):\\n"
         dummy_code += '    msg = \\'ERROR: dummy code for Lambda "NAME" - please run "update_lambdas"\\'\\n'
         dummy_code += "    print(msg)\\n"
@@ -58,7 +58,6 @@ class Stack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-
         # 1. Create buckets
         self.bucket_names = ^^bucket_names^^
         preexisting_buckets = ^^preexisting_buckets^^
@@ -71,21 +70,22 @@ class Stack(Stack):
             if bucket_short_name in preexisting_buckets:
                 buckets[bucket_short_name] = s3.Bucket.from_bucket_name(self, bucket_short_name, bucket_real_name)
             else: 
-                buckets[bucket_short_name] = s3.Bucket(
+                bucket = s3.Bucket(
                     self, bucket_short_name,
                     bucket_name=bucket_real_name,
                     removal_policy=core.RemovalPolicy.DESTROY,
                     #auto_delete_objects=True
                 )
+                buckets[bucket_short_name] = bucket
                 # 1.b Add a statement to the IAM policy to deny non-HTTPS requests:
-                buckets[bucket_short_name].add_to_resource_policy(
+                bucket.add_to_resource_policy(
                     iam.PolicyStatement(
                         sid="DenyHTTP",
                         effect=iam.Effect.DENY,
                         # This blocks everyone if aws:SecureTransport is false
                         principals=[iam.AnyPrincipal()],
                         actions=["s3:*"],
-                        resources=[buckets[bucket_short_name].bucket_arn, f"{buckets[bucket_short_name].bucket_arn}/*"],
+                        resources=[bucket.bucket_arn, f"{bucket.bucket_arn}/*"],
                         conditions={ "Bool": {"aws:SecureTransport": "false"}}
                     )
                 )
@@ -106,7 +106,7 @@ class Stack(Stack):
                 env= {}
                 # env["BUCKET"] = self.get_bucket_name(idx, "real_for_env_var")
                 
-                # 2.c Create lambda environment
+                # 2.c Create the lambda
                 lambda_name = f"{self.lambda_names[idx]}"
                 lambda_code_file_name = f"{lambda_name}_lambda"
                 lambdas[lambda_name] = self.create_lambda(lambda_code_file_name, env, lambda_role)
@@ -127,14 +127,17 @@ class Stack(Stack):
         # 3.b Permission to read and write on this bucket
         read_write_lambda_access_to_bucket = ^^read_write_lambda_access_to_bucket^^
         for bucket_name in read_write_lambda_access_to_bucket.keys():
+            bucket_index = self.bucket_names.index(bucket_name)
+            bucket = buckets[self.get_bucket_name(bucket_index, "short")]
             for lambda_name in read_write_lambda_access_to_bucket[bucket_name]:
                 #buckets[bucket_name].grant_read_write(lambdas[lambda_name])
                 lambdas[lambda_name].role.add_to_policy(
                     iam.PolicyStatement(
                         actions=["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:ListBucket"],
-                        resources=[buckets['bucket-'+bucket_name].bucket_arn, f"{buckets['bucket-'+bucket_name].bucket_arn}/*"]
+                        resources=[bucket.bucket_arn, f"{bucket.bucket_arn}/*"]
                     )
                 )
+
         # 5. Define Lambda-running triggers
         trigger_on_file_drop = ^^trigger_on_file_drop^^
         for bucket_name in trigger_on_file_drop.keys():
@@ -144,7 +147,6 @@ class Stack(Stack):
                     s3.EventType.OBJECT_CREATED, notification,
                     #s3.NotificationKeyFilter(suffix=".yaml")
                 )
- 
 
         # 6. Send the names of all Lambdas to the output, to be used to upload the lambdas
         for file_name in lambdas.keys():
